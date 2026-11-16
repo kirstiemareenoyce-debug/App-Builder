@@ -1,0 +1,1 @@
+- [OAuth callback handoff](oauth-callback-handoff.md) — preserve PKCE parameters until their owner consumes them; web completion reads the current URL.

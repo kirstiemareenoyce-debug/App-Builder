@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Session, User } from "@supabase/supabase-js";
@@ -21,7 +22,7 @@ import {
   getSupabasePublicConfig,
   isSupabaseConfigured,
 } from "@/lib/supabase";
-import { requirePkceCode } from "@/lib/oauth-callback";
+import { startOAuthSession } from "@/lib/oauth-session";
 import { signOutWithChatDraftCleanup } from "@/lib/chat-draft-cleanup";
 import {
   INITIAL_RECOVERY_STATE,
@@ -400,24 +401,20 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      const browserResult = await WebBrowser.openAuthSessionAsync(
+      return startOAuthSession(
         result.data.url,
         redirectTo,
+        {
+          redirectInSameTab:
+            Platform.OS === "web" && typeof window !== "undefined"
+              ? (url) => window.location.assign(url)
+              : undefined,
+          openAuthSession: WebBrowser.openAuthSessionAsync,
+          completeCallback: completeAuthCallback,
+        },
       );
-      if (browserResult.type !== "success") return false;
-      const code = requirePkceCode(browserResult.url);
-      const current = await supabase.auth.getSession();
-      if (current.error) throw current.error;
-      if (current.data.session) {
-        setPreviewMode(false);
-        return true;
-      }
-      const exchange = await supabase.auth.exchangeCodeForSession(code);
-      if (exchange.error) throw exchange.error;
-      setPreviewMode(false);
-      return true;
     },
-    [setPreviewMode],
+    [completeAuthCallback],
   );
 
   const resetPassword = useCallback(async (email: string) => {

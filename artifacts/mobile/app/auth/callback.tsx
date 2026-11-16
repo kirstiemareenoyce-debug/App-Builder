@@ -1,6 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import { useRouter, type Href } from "expo-router";
 import { useEffect, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
@@ -35,9 +34,12 @@ export default function SupabaseAuthCallbackScreen() {
   const router = useRouter();
   const colors = useColors();
   const callbackUrl = Linking.useURL();
-  const effectiveUrl =
-    callbackUrl ??
-    (Platform.OS === "web" && typeof window !== "undefined" ? window.location.href : null);
+  // Keep the original callback stable after removing sensitive URL parameters.
+  // A rerender must never replace the pending code with the cleaned URL.
+  const [initialWebUrl] = useState(() =>
+    Platform.OS === "web" && typeof window !== "undefined" ? window.location.href : null,
+  );
+  const effectiveUrl = initialWebUrl ?? callbackUrl;
   const { completeAuthCallback, cancelPasswordRecovery } = useKairosAuth();
   const [error, setError] = useState<string | null>(null);
   const [recoveryLink, setRecoveryLink] = useState(false);
@@ -61,14 +63,12 @@ export default function SupabaseAuthCallbackScreen() {
         const result = await completeAuthCallback(effectiveUrl);
         recordCallbackOutcome("exchange_succeeded");
         clearWebCallbackUrl();
-        WebBrowser.maybeCompleteAuthSession();
         if (active) router.replace(result.route as Href);
       } catch (callbackError) {
         const known = callbackError instanceof AuthCallbackError;
         if (!known || callbackError.outcome === "exchange_failed") recordCallbackOutcome("exchange_failed");
         else recordCallbackOutcome(callbackError.outcome);
         clearWebCallbackUrl();
-        WebBrowser.maybeCompleteAuthSession();
         if (active) {
           if (known && callbackError.recovery) setRecoveryLink(true);
           setError(known ? callbackError.message : "Authentication could not finish. Please try again.");
