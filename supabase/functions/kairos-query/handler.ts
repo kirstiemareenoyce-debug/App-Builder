@@ -3,6 +3,7 @@ import { handlePreflight } from "../_shared/cors.ts";
 import { HttpError } from "../_shared/errors.ts";
 import { getRequestId, readJsonBounded } from "../_shared/request.ts";
 import { errorResponse, methodNotAllowed, successResponse } from "../_shared/responses.ts";
+import { reserveKairosAIRequest } from "../_shared/request-budget.ts";
 import {
   buildKairosUserPrompt, kairosQuerySchema, KAIROS_SYSTEM_PROMPT,
   KAIROS_AI_CONSENT_VERSION, KAIROS_STORAGE_CONSENT_VERSION,
@@ -33,8 +34,10 @@ export async function handleKairosQuery(request: Request, dependencies: KairosQu
     if (dependency.error) {
       throw new HttpError(503, "DEPENDENCY_ERROR", "Kairos private history setup is unavailable. Your message has not been sent to an AI provider.");
     }
+    const serviceClient = dependencies.serviceClient();
+    await reserveKairosAIRequest(serviceClient, user.id);
     const completion = await dependencies.complete(KAIROS_SYSTEM_PROMPT, buildKairosUserPrompt(body), requestId);
-    const saved = await dependencies.serviceClient().from("kairos_ai_interactions").insert({
+    const saved = await serviceClient.from("kairos_ai_interactions").insert({
       user_id: user.id, query: body.query, response: completion.text,
       mode: body.mode, provider: completion.provider,
       ai_use_consent_version: KAIROS_AI_CONSENT_VERSION,

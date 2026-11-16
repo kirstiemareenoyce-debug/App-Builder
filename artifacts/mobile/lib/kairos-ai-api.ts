@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getSupabaseClient } from "@/lib/supabase";
 import { KairosApiError } from "@/lib/evergreen-api";
+import { kairosAIErrorMessage } from "@/lib/kairos-ai-errors";
 import type { KairosAIInput, KairosAIOutput } from "@/types/kairos-ai";
 
 export const kairosAIInputSchema = z.object({
@@ -34,13 +35,13 @@ export async function queryKairosAI(input: KairosAIInput, expectedUserId: string
     if (context instanceof Response) {
       const envelope = await context.clone().json().catch(() => null) as Envelope | null;
       if (envelope?.success === false) {
-        throw new KairosApiError(envelope.error.message, envelope.error.code, envelope.error.request_id);
+        throw new KairosApiError(kairosAIErrorMessage(envelope.error), envelope.error.code, envelope.error.request_id);
       }
     }
     throw new KairosApiError("Kairos AI is unavailable. Your draft is still here; setup or your connection may need review.");
   }
   if (!data) throw new KairosApiError("Kairos AI returned no response. Your draft is still here.");
-  if (!data.success) throw new KairosApiError(data.error.message, data.error.code, data.error.request_id);
+  if (!data.success) throw new KairosApiError(kairosAIErrorMessage(data.error), data.error.code, data.error.request_id);
   const output = outputSchema.safeParse(data.data);
   if (!output.success) throw new KairosApiError("Kairos AI returned an invalid response. Your draft is still here.");
   return output.data;

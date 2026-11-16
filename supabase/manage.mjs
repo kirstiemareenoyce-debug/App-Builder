@@ -18,11 +18,11 @@ function required(value, label) {
   if (!value) throw new Error(`${label} is required.`);
   return value;
 }
-const mutations = new Set(["schema", "secrets", "deploy", "verify-rls"]);
+const mutations = new Set(["schema", "budget-schema", "secrets", "deploy", "verify-rls", "verify-budget"]);
 
 async function main() {
-  if (!["inspect", "bundle", "schema", "secrets", "deploy", "verify", "verify-rls"].includes(command)) {
-    console.log("Usage: node supabase/manage.mjs <inspect|bundle|schema|secrets|deploy|verify|verify-rls> --project-ref REF [--apply] [--origin HTTPS_ORIGIN]");
+  if (!["inspect", "bundle", "schema", "budget-schema", "secrets", "deploy", "verify", "verify-rls", "verify-budget"].includes(command)) {
+    console.log("Usage: node supabase/manage.mjs <inspect|bundle|schema|budget-schema|secrets|deploy|verify|verify-rls|verify-budget> --project-ref REF [--apply] [--origin HTTPS_ORIGIN]");
     process.exitCode = 1;
     return;
   }
@@ -64,6 +64,8 @@ async function main() {
     return sql(`select json_build_object(
       'chat_table', to_regclass('public.kairos_ai_interactions') is not null,
       'provider_table', to_regclass('public.ai_provider_runtime_state') is not null,
+      'budget_table', to_regclass('public.kairos_ai_daily_usage') is not null,
+      'budget_function', to_regprocedure('public.reserve_kairos_ai_request(uuid)') is not null,
       'timestamp_trigger_dependency', to_regprocedure('public.set_updated_at()') is not null,
       'public_table_count', (select count(*) from pg_tables where schemaname='public'),
       'policies', (select json_agg(json_build_object('table', tablename, 'policy', policyname, 'role', roles, 'command', cmd, 'predicate', qual))
@@ -90,6 +92,14 @@ async function main() {
     }
     await sql(await readFile(join(root, "migrations/20261116000100_main_chat.sql"), "utf8"), false);
     console.log(JSON.stringify({ schemaApplied: true, metadata: await schemaMetadata() }, null, 2));
+  } else if (command === "budget-schema") {
+    const rows = await schemaMetadata();
+    const before = rows[0]?.setup_metadata;
+    if (!before?.chat_table || before.budget_table || before.budget_function) {
+      throw new Error("Budget prerequisites changed. Inspect schema drift instead of replacing existing objects.");
+    }
+    await sql(await readFile(join(root, "migrations/20261116000200_main_chat_budget.sql"), "utf8"), false);
+    console.log(JSON.stringify({ budgetSchemaApplied: true, metadata: await schemaMetadata() }, null, 2));
   } else if (command === "secrets") {
     const origin = required(option("--origin"), "--origin");
     const parsed = new URL(origin);
@@ -134,6 +144,9 @@ async function main() {
       action: command, slug: metadata?.slug, status: metadata?.status,
       verify_jwt: metadata?.verify_jwt, version: metadata?.version, sourceFiles: sources.length,
     }));
+  } else if (command === "verify-budget") {
+    await sql(await readFile(join(root, "tests/main-chat-budget.sql"), "utf8"), false);
+    console.log(JSON.stringify({ budgetChecksPassed: true, syntheticChangesRolledBack: true }));
   } else if (command === "verify-rls") {
     await sql(await readFile(join(root, "tests/main-chat-rls.sql"), "utf8"), false);
     console.log(JSON.stringify({ privacyChecksPassed: true, syntheticChangesRolledBack: true }));

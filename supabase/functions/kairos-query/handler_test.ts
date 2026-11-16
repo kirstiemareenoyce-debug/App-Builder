@@ -13,8 +13,9 @@ function request(body: unknown = valid, extra: RequestInit = {}) {
     body: JSON.stringify(body), ...extra,
   });
 }
-function fixture(options: { authError?: boolean; dependencyError?: boolean; saveError?: boolean; providerError?: boolean } = {}) {
+function fixture(options: { authError?: boolean; dependencyError?: boolean; saveError?: boolean; providerError?: boolean; budgetLimit?: number; budgetError?: boolean } = {}) {
   const calls: { operation: string; values: unknown[] }[] = [];
+  let used = 0;
   const probe = {
     select: (columns: string) => { calls.push({ operation: "probe-select", values: [columns] }); return probe; },
     eq: (column: string, value: string) => { calls.push({ operation: "probe-eq", values: [column, value] }); return probe; },
@@ -43,6 +44,16 @@ function fixture(options: { authError?: boolean; dependencyError?: boolean; save
       return Promise.resolve({ text: "Offline test fixture, never a live UI reply.", provider: "openai" });
     },
     serviceClient: () => ({
+      rpc: (name: string, args: unknown) => {
+        calls.push({ operation: "reserve", values: [name, args] });
+        const limit = options.budgetLimit ?? 20;
+        const allowed = used < limit;
+        if (allowed) used++;
+        return Promise.resolve({
+          data: [{ allowed, used, daily_limit: limit, resets_at: "2026-11-17T00:00:00Z" }],
+          error: options.budgetError ? new Error("private database details") : null,
+        });
+      },
       from: (table: string) => { calls.push({ operation: "save-table", values: [table] }); return save; },
     }) as unknown as SupabaseClient,
   };
@@ -142,4 +153,32 @@ Deno.test("non-clinical, consent and individual safety prompt boundaries are pre
     assert.ok(KAIROS_SYSTEM_PROMPT.includes(text));
   }
   assert.equal(JSON.parse(buildKairosUserPrompt(kairosQuerySchema.parse({ ...valid, mode: "reflection" }))).mode, "reflection");
+});
+
+Deno.test("budget errors fail closed without exposing database details", async () => {
+  const { deps, calls } = fixture({ budgetError: true });
+  const response = await handleKairosQuery(request(), deps);
+  assert.equal(response.status, 503);
+  assert.equal(calls.some((c) => c.operation === "complete" || c.operation === "insert"), false);
+  assert.doesNotMatch(await response.text(), /private database details/);
+});
+Deno.test("reservation uses token identity and precedes every generation", async () => {
+  const { deps, calls } = fixture();
+  assert.equal((await handleKairosQuery(request(), deps)).status, 200);
+  assert.deepEqual(calls.find((c) => c.operation === "reserve")?.values,
+    ["reserve_kairos_ai_request", { p_user_id: "owner-from-token" }]);
+  assert.ok(calls.findIndex((c) => c.operation === "reserve") < calls.findIndex((c) => c.operation === "complete"));
+});
+Deno.test("concurrent requests share one allowance, including failed generations and saves", async () => {
+  for (const failure of [{}, { providerError: true }, { saveError: true }]) {
+    const { deps, calls } = fixture({ ...failure, budgetLimit: 3 });
+    const responses = await Promise.all(Array.from({ length: 30 }, () => handleKairosQuery(request(), deps)));
+    assert.equal(calls.filter((c) => c.operation === "complete").length, 3);
+    assert.equal(responses.filter((r) => r.status === 429).length, 27);
+    const blocked = await responses.find((r) => r.status === 429)!.json();
+    assert.equal(blocked.error.code, "DAILY_AI_LIMIT_REACHED");
+    assert.match(blocked.error.message, /00:00 UTC/);
+    assert.equal(blocked.error.details.resets_at, "2026-11-17T00:00:00Z");
+    assert.equal((await handleKairosQuery(request(), deps)).status, 429);
+  }
 });

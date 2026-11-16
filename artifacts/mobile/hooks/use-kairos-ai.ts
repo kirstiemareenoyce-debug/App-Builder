@@ -31,6 +31,8 @@ export function useKairosAIQueryMutation() {
   const { user } = useKairosAuth();
   const queryClient = useQueryClient();
   return useMutation({
+    // Retrying a failed/ambiguous generation consumes another daily slot.
+    retry: false,
     mutationKey: ["kairos-ai-query", user?.id ?? "anonymous", user?.isPreview ?? false],
     meta: KAIROS_AI_SENSITIVE_META,
     onMutate: (variables: KairosAIQueryVariables) => ({ userId: variables.expectedOwner }),
