@@ -99,6 +99,20 @@ try {
     update public.kairos_ai_project_policy set paused = true;`);
   if ((await burst()).some((r) => r !== "paused")) throw new Error("Paused burst admitted a request.");
   console.log("Project SQL checks and 120 concurrent reservations passed; no provider calls or live changes.");
+  const statusMigration = await readFile(join(root, "migrations/20261116000400_main_chat_allowance_status.sql"), "utf8");
+  const statusChecks = await readFile(join(root, "tests/main-chat-allowance-status.sql"), "utf8");
+  // Minimal JWT identity shim, only inside the disposable cluster.
+  await run("psql", psql, `create function auth.uid() returns uuid language sql stable as $$
+    select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    grant usage on schema auth to authenticated;
+    ${statusMigration}`);
+  await run("psql", psql, statusChecks);
+  await run("psql", psql, `begin read only;
+    set local role authenticated;
+    set local request.jwt.claim.sub = '00000000-0000-4000-8000-000000000001';
+    select * from public.kairos_ai_allowance_status();
+    rollback;`);
+  console.log("Owner-private allowance status passed isolation, no-write, UTC timezone and read-only-transaction checks.");
 } finally {
   if (started) await run("pg_ctl", ["-D", data, "-m", "immediate", "-w", "stop"]);
   await rm(dir, { recursive: true, force: true });

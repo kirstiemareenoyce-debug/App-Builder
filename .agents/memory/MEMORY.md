@@ -4,3 +4,4 @@
 - [Chat deletion concurrency](chat-deletion-concurrency.md) — client cancellation cannot prevent the server from saving; wait for same-device generation before deleting.
 - [Partner feature authorization](private-archive-approval.md) — partner setup is approved without repeated prompts; actual invitations and shared content still require in-app consent.
 - [Project AI safeguard](project-ai-safeguard.md) — schema installation, activation and the numerical allowance need owner approval; request limits are not dollar caps.
+- [Advisory AI refreshes](advisory-ai-refreshes.md) — allowance refreshes must not delay delivery of a paid AI reply or completion of a failed send.

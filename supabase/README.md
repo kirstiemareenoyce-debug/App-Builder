@@ -84,6 +84,46 @@ limit or a dollar spending cap. Use provider-side billing
 limits/alerts as a separate safeguard; this path does not constrain other AI
 tools or prevent account creation abuse.
 
+### Private allowance display (pending installation approval)
+
+`migrations/20261116000400_main_chat_allowance_status.sql` prepares a read-only
+`kairos_ai_allowance_status()` RPC for signed-in users. It derives identity from
+`auth.uid()` and accepts no user, limit or clock arguments. It returns only that
+account's used count, daily limit, server observation time and next midnight UTC;
+no project totals or other accounts' counters are exposed. Its narrow definer
+SELECT uses an empty search path and fully qualified references. Anonymous and
+service roles cannot call it; underlying counter grants and service-role-only
+reservation rights remain unchanged. Reading status never reserves, inserts,
+updates, refunds, calls a provider or requires AI processing consent.
+
+The main mobile chat shows remaining **account** requests and the dated UTC
+reset before Send, with a manual refresh. Status is advisory: another device can
+use requests, and project limits/pauses still apply. Unknown or stale status does
+not bypass or replace the server's authoritative reservation and does not block
+otherwise valid sends. Missing setup, preview and sign-out have explicit states;
+no sample/full allowance is substituted. Failed admitted attempts also count.
+Status refreshes after both successful and failed attempts, screen focus, app
+foreground, account changes and every 15 seconds while mounted. Counts are hidden
+during refresh and attempts, after errors, after 30 seconds, or at the server's
+UTC reset boundary (whichever expires first). Age includes network time. UTC copy
+never converts the reset to the phone's timezone. Status is account-keyed,
+cancellable and excluded from persisted query storage; the existing auth cleanup
+clears it on account changes.
+Post-attempt refresh invalidates the count immediately and runs independently:
+a slow, stalled or failed status read never delays displaying the AI reply/error
+or completing the send.
+
+This migration and the new mobile read are **prepared offline only**. Obtain
+explicit owner approval before any live inspection, installation or status
+verification. After approval, compare live schema/grants, confirm the
+per-account migration exists, then apply this additive migration through an
+authorized operator; it deliberately fails if the function already exists.
+It does not activate AI or modify the project policy. Deploy the matching mobile
+change separately only when approved. No automatic startup/build/Publish hook
+installs it. Without installation, the app reports status unavailable and the
+existing server reservation continues to enforce limits. Do not run the status
+SQL fixtures on a live project.
+
 ### Shared project limit and emergency pause
 
 `20261116000300_project_chat_budget.sql` is prepared for owner review only.
@@ -147,6 +187,7 @@ deno task --config supabase/deno.json test
 node supabase/tests/check-budget-local.mjs
 node supabase/tests/check-history-local.mjs
 pnpm --filter @workspace/scripts exec tsx --test ../artifacts/mobile/lib/kairos-ai-history.test.ts
+pnpm --filter @workspace/scripts exec tsx --test ../artifacts/mobile/lib/kairos-ai-allowance.test.ts
 ```
 
 The history SQL runner checks individual-pair deletion, clearing more than the
@@ -183,6 +224,13 @@ and verify first-use/existing-row exhaustion, atomic counter agreement, a paused
 burst, upgrade seeding, UTC rollover, owner-only controls and deletion isolation.
 The entire cluster is removed afterward. No provider transport or live database
 is used.
+The same disposable allowance runner verifies status isolation, role grants,
+missing identity, repeated/first-use/exhausted reads without counter changes,
+UTC resets in opposite timezones and execution in a read-only transaction.
+Mobile status tests cover token pinning, malformed/unavailable results, stale
+snapshots, in-flight cancellation, account changes, clock offset and UTC reset
+copy without network or paid provider calls. They also deliberately stall status
+reads to confirm that both successful and failed sends still complete promptly.
 
 ## Explicit operator actions
 

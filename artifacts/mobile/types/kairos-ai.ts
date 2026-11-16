@@ -33,7 +33,12 @@ export type KairosAIDatabase = {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      kairos_ai_allowance_status: {
+        Args: Record<string, never>;
+        Returns: { used: number; daily_limit: number; resets_at: string; observed_at: string }[];
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

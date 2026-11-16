@@ -8,7 +8,7 @@ import { KairosInput } from "@/components/kairos/input";
 import { ScreenHeader } from "@/components/kairos/screen-header";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useDeleteKairosAIHistory, useKairosAIBusy, useKairosAIInteractions, useKairosAIQueryMutation } from "@/hooks/use-kairos-ai";
+import { useDeleteKairosAIHistory, useKairosAIAllowance, useKairosAIBusy, useKairosAIInteractions, useKairosAIQueryMutation } from "@/hooks/use-kairos-ai";
 import { useKairosAuth } from "@/providers/supabase-auth-provider";
 import { kairosAIInputSchema } from "@/lib/kairos-ai-api";
 import {
@@ -42,6 +42,7 @@ export default function KairosAIScreen() {
   const sequence = useRef(0);
   const listRef = useRef<FlatList<KairosAIMessage>>(null);
   const history = useKairosAIInteractions();
+  const allowance = useKairosAIAllowance();
   const mutation = useKairosAIQueryMutation();
   const deleteMutation = useDeleteKairosAIHistory();
   const isBusy = useKairosAIBusy();
@@ -206,7 +207,14 @@ export default function KairosAIScreen() {
             value={visible.draft} onChangeText={(draft) => update({ draft })} multiline maxLength={2000}
             placeholder={visible.mode === "learning" ? "For example: What can overwhelm feel like?" : "A feeling or response I want to understand…"} />
           {visible.error ? <Text accessibilityLiveRegion="assertive" style={[styles.note, { color: colors.error }]}>{visible.error}</Text> : null}
-          <KairosButton label="Send to Kairos AI" loading={isSending} disabled={isBusy || visible.deleting || Boolean(visible.deletion) || !visible.draft.trim() || !visible.aiConsent || !visible.storageConsent} onPress={() => void send()} />
+          <Text testID="kairos-ai-allowance" accessibilityLiveRegion="polite" style={[styles.note, { color: colors.muted }]}>
+            {isSending || isBusy ? "Your daily AI allowance will refresh after this operation." : allowance.text}
+          </Text>
+          <Text style={[styles.note, { color: colors.muted }]}>Status is advisory, not a reservation. Shared limits or pauses may also apply. Admitted attempts count even if they fail.</Text>
+          <KairosButton testID="kairos-ai-allowance-refresh" compact tone="ghost" label="Refresh allowance"
+            disabled={!allowance.canRefresh || allowance.isFetching || isBusy || isSending}
+            onPress={() => void allowance.refresh().catch(() => undefined)} />
+          <KairosButton testID="kairos-ai-send" label="Send to Kairos AI" loading={isSending} disabled={isBusy || visible.deleting || Boolean(visible.deletion) || !visible.draft.trim() || !visible.aiConsent || !visible.storageConsent} onPress={() => void send()} />
         </View>
       </KeyboardAvoidingView>
     </ScreenContainer>

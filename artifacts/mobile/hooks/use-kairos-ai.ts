@@ -1,11 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { AppState } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { getOptionalSupabaseClient } from "@/lib/supabase";
 import { queryKairosAI } from "@/lib/kairos-ai-api";
 import { deleteKairosAIHistory, fetchKairosAIHistory, kairosAIHistoryKey, KAIROS_AI_SENSITIVE_META, type KairosAIHistoryDeletion } from "@/lib/kairos-ai-history";
 import { deleteKairosAIHistoryAndRefresh, isKairosAIBusy, runKairosAIOperation, subscribeKairosAIOperations } from "@/lib/kairos-ai-operations";
 import { useKairosAuth } from "@/providers/supabase-auth-provider";
+import {
+  fetchKairosAIAllowance, kairosAIAllowanceFreshFor, kairosAIAllowanceKey,
+  kairosAIAllowanceText, refreshKairosAIAllowance, refreshKairosAIAllowanceAfterAttempt,
+} from "@/lib/kairos-ai-allowance";
 import type { KairosAIDatabase, KairosAIInput } from "@/types/kairos-ai";
 
 export type KairosAIQueryVariables = { input: KairosAIInput; expectedOwner: string };
@@ -29,6 +35,60 @@ export function useKairosAIInteractions() {
     },
   });
 }
+export function useKairosAIAllowance() {
+  const { user } = useKairosAuth();
+  const queryClient = useQueryClient();
+  const owner = user && !user.isPreview ? user.id : null;
+  const [now, setNow] = useState(Date.now);
+  const query = useQuery({
+    queryKey: kairosAIAllowanceKey(owner ?? "anonymous"),
+    meta: KAIROS_AI_SENSITIVE_META,
+    enabled: Boolean(owner),
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 15_000,
+    queryFn: ({ signal }) => {
+      const { client, userId } = requireCloudUser(user);
+      return fetchKairosAIAllowance(client, userId, signal);
+    },
+  });
+  const refresh = useCallback(() => {
+    if (!owner) return Promise.resolve();
+    setNow(Date.now());
+    return refreshKairosAIAllowance(queryClient, owner);
+  }, [owner, queryClient]);
+  useFocusEffect(useCallback(() => {
+    void refresh().catch(() => undefined);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh().catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, [refresh]));
+  useEffect(() => {
+    if (!owner) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [owner]);
+  useEffect(() => {
+    if (!owner || !query.data) return;
+    const remaining = kairosAIAllowanceFreshFor(query.data, Date.now());
+    if (!remaining) return;
+    const timer = setTimeout(() => { void refresh().catch(() => undefined); }, remaining);
+    return () => clearTimeout(timer);
+  }, [owner, query.data, refresh]);
+  const invalid = query.isError || query.isFetching ||
+    (queryClient.getQueryState(kairosAIAllowanceKey(owner ?? "anonymous"))?.isInvalidated ?? true);
+  return {
+    text: !user ? "Sign in to check your daily AI allowance."
+      : user.isPreview ? "Daily AI allowance is unavailable in preview; no live status is read."
+      : query.isPending || query.isFetching ? "Checking your daily AI allowance…"
+      : query.isError ? "Daily AI allowance is unavailable. Refresh to retry; sending is still checked by the server."
+      : kairosAIAllowanceText(query.data, owner, Math.max(now, Date.now()), invalid),
+    refresh, isFetching: query.isFetching, canRefresh: Boolean(owner),
+  };
+}
 export function useKairosAIQueryMutation() {
   const { user } = useKairosAuth();
   const queryClient = useQueryClient();
@@ -37,7 +97,12 @@ export function useKairosAIQueryMutation() {
     retry: false,
     mutationKey: ["kairos-ai-query", user?.id ?? "anonymous", user?.isPreview ?? false],
     meta: KAIROS_AI_SENSITIVE_META,
-    onMutate: (variables: KairosAIQueryVariables) => ({ userId: variables.expectedOwner }),
+    onMutate: async (variables: KairosAIQueryVariables) => {
+      const queryKey = kairosAIAllowanceKey(variables.expectedOwner);
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: "none" });
+      return { userId: variables.expectedOwner };
+    },
     mutationFn: async ({ input, expectedOwner }: KairosAIQueryVariables) => {
       requireCloudUser(user);
       if (!expectedOwner || user?.id !== expectedOwner) throw new Error("Your account changed. Sign in before sending.");
@@ -45,6 +110,12 @@ export function useKairosAIQueryMutation() {
     },
     onSuccess: (_result, variables) => {
       void queryClient.invalidateQueries({ queryKey: kairosAIHistoryKey(variables.expectedOwner) }).catch(() => undefined);
+    },
+    onSettled: (_result, _error, variables) => {
+      // A failed or ambiguous attempt may have consumed a reservation too.
+      // Do not return the refresh promise: a stalled status read must not keep
+      // mutateAsync pending after generation has already succeeded or failed.
+      refreshKairosAIAllowanceAfterAttempt(queryClient, variables.expectedOwner);
     },
   });
 }
