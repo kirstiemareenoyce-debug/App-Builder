@@ -2,5 +2,5 @@
 - [Imported backend evidence](imported-backend-evidence.md) — archive deployment reports are historical, not proof of the connected Supabase project's readiness.
 - [AI provider choice](ai-provider-choice.md) — the user selected Kimi plus OpenAI rather than an OpenAI-only setup.
 - [Chat deletion concurrency](chat-deletion-concurrency.md) — client cancellation cannot prevent the server from saving; wait for same-device generation before deleting.
-- [Private archive approval](private-archive-approval.md) — Support Archive authorization covers private storage, not partner sharing or AI processing.
+- [Partner feature authorization](private-archive-approval.md) — partner setup is approved without repeated prompts; actual invitations and shared content still require in-app consent.
 - [Project AI safeguard](project-ai-safeguard.md) — schema installation, activation and the numerical allowance need owner approval; request limits are not dollar caps.

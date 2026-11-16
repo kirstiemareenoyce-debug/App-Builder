@@ -1,10 +1,11 @@
 # Private Support Archive
 
 The existing mobile Support Profile saves to `aevum_relationship_entries`.
-This focused installation enables private save/read/edit/delete only. It does
-not install partner connections, shared snapshots, sharing RPCs, assessment
-tables, or AI processing. Those missing services can still show separate setup
-errors in partner/sharing areas; private archive entries remain usable.
+The original focused installation enables private save/read/edit/delete only.
+The owner subsequently authorized the separate partner activation documented
+in `PARTNER_SHARING.md`; its connection and reviewed-snapshot tables/RPCs are
+now installed. Private entries still remain private unless explicitly shared.
+Neither installation enables assessments or AI processing of these entries.
 
 The shared entry table retains the imported app's category contract. All
 categories have identical owner-only access; none becomes shared by saving.

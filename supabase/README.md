@@ -3,6 +3,10 @@
 This is a focused restoration of the uploaded package's `kairos-query` path.
 The other AI tools and connectors are not installed by this setup.
 
+Partner connections, consent-based entry sharing, song links and private photo
+memories have a separate owner-authorized setup. See `PARTNER_SHARING.md`.
+Their content is not added to AI chat context or sent to any AI provider.
+
 ## Boundaries
 
 - The existing mobile app calls `kairos-query` with its signed-in user token.

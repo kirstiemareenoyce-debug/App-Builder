@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { File } from "expo-file-system";
+import { Platform } from "react-native";
 import { getOptionalSupabaseClient } from "@/lib/supabase";
 import { useKairosAuth } from "@/providers/supabase-auth-provider";
 import {
@@ -209,19 +211,32 @@ export function useSaveRelationshipMedia() {
       let byteSize: number | null = null;
       if (input.kind === "photo") {
         mimeType = validateMemoryPhoto(input.photo);
-        const response = await fetch(input.photo.uri);
-        if (!response.ok)
-          throw new Error("The selected photo could not be read.");
-        const blob = await response.blob();
-        if (blob.size > MAX_MEMORY_PHOTO_BYTES)
-          throw new Error("Memory photos must be 10 MB or smaller.");
-        byteSize = blob.size;
+        // Supabase native uploads require binary bytes, not a React Native Blob.
+        // The File API also handles device file/content URIs without HTTP fetch.
+        let bytes: ArrayBuffer;
+        if (Platform.OS === "web") {
+          const response = await fetch(input.photo.uri);
+          if (!response.ok)
+            throw new Error("The selected photo could not be read.");
+          const blob = await response.blob();
+          if (blob.size > MAX_MEMORY_PHOTO_BYTES)
+            throw new Error("Memory photos must be 10 MB or smaller.");
+          bytes = await blob.arrayBuffer();
+        } else {
+          const file = new File(input.photo.uri);
+          if (file.size > MAX_MEMORY_PHOTO_BYTES)
+            throw new Error("Memory photos must be 10 MB or smaller.");
+          bytes = await file.arrayBuffer();
+        }
+        if (!bytes.byteLength || bytes.byteLength > MAX_MEMORY_PHOTO_BYTES)
+          throw new Error("Choose a non-empty photo of 10 MB or smaller.");
+        byteSize = bytes.byteLength;
         const extension =
           mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1];
         objectPath = `${user.id}/${Date.now()}-${Math.random().toString(16).slice(2)}.${extension}`;
         const upload = await client.storage
           .from("relationship-memories")
-          .upload(objectPath, blob, { contentType: mimeType, upsert: false });
+          .upload(objectPath, bytes, { contentType: mimeType, upsert: false });
         if (upload.error) throw upload.error;
       }
       const insert: TablesInsert<"relationship_media_items"> = {
