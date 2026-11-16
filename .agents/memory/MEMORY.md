@@ -1,2 +1,3 @@
 - [OAuth callback handoff](oauth-callback-handoff.md) — preserve PKCE parameters until their owner consumes them; web completion reads the current URL.
 - [Imported backend evidence](imported-backend-evidence.md) — archive deployment reports are historical, not proof of the connected Supabase project's readiness.
+- [AI provider choice](ai-provider-choice.md) — the user selected Kimi plus OpenAI rather than an OpenAI-only setup.
