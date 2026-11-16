@@ -97,7 +97,31 @@ Requires Deno 2:
 deno task --config supabase/deno.json check
 deno task --config supabase/deno.json test
 node supabase/tests/check-budget-local.mjs
+node supabase/tests/check-history-local.mjs
+pnpm --filter @workspace/scripts exec tsx --test ../artifacts/mobile/lib/kairos-ai-history.test.ts
 ```
+
+The history SQL runner checks individual-pair deletion, clearing more than the
+50 displayed exchanges, idempotency, and cross-owner isolation using only
+synthetic accounts in a disposable local database. It installs no live changes.
+
+## Deleting saved main-chat history
+
+Each saved reply offers **Delete message and reply**; **Clear saved main-chat
+history** deletes all of that owner's main-chat exchanges, not just the latest
+50 displayed. Both require confirmation. Neither changes drafts, other
+assistants, journals, questionnaires, Work/partner records, or daily usage.
+Deletion has no automatic retries and failures are explicit, including an
+ambiguous network result that may have committed. Retry is safe if a row was
+already deleted. A refresh error is shown separately from a successful delete.
+
+On the same running app, sending and deleting are mutually exclusive per owner,
+including across navigation and account switches. A running request must finish
+before deleting because cancelling a client request cannot guarantee that the
+server will not save its reply. Queries are cancelled around deletion and both
+cached rows and local completed turns are removed. No deleted rows are reinserted
+by the client. This is not a global generation pause: another device or a newly
+started session can save new exchanges after clear. Confirmation explains this.
 
 Tests use injected, offline provider/auth/database fixtures. They run without
 environment or network permissions and cannot spend provider credit.

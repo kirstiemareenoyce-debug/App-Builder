@@ -5,6 +5,7 @@ import { useColors } from "@/hooks/use-colors";
 
 type ButtonTone = "primary" | "secondary" | "danger" | "ghost";
 type KairosButtonProps = {
+  testID?: string;
   label: string;
   onPress: () => void;
   accessibilityLabel?: string;
@@ -17,13 +18,13 @@ type KairosButtonProps = {
   style?: ViewStyle;
 };
 
-export function KairosButton({ label, onPress, accessibilityLabel, accessibilityHint, icon, loading = false, disabled = false, tone = "primary", compact = false, style }: KairosButtonProps) {
+export function KairosButton({ testID, label, onPress, accessibilityLabel, accessibilityHint, icon, loading = false, disabled = false, tone = "primary", compact = false, style }: KairosButtonProps) {
   const colors = useColors();
   const backgroundColor = tone === "primary" ? colors.primary : tone === "secondary" ? colors.surface : tone === "danger" ? colors.error : "transparent";
   const borderColor = tone === "primary" ? colors.primary : tone === "danger" ? colors.error : colors.border;
   const contentColor = tone === "primary" ? colors.background : tone === "danger" ? colors.foreground : colors.foreground;
   return (
-    <PressableScale accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityHint={accessibilityHint} accessibilityState={{ busy: loading, disabled: disabled || loading }} disabled={disabled || loading} onPress={onPress} style={[styles.base, compact ? styles.compact : styles.regular, { backgroundColor, borderColor }, style]}>
+    <PressableScale testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityHint={accessibilityHint} accessibilityState={{ busy: loading, disabled: disabled || loading }} disabled={disabled || loading} onPress={onPress} style={[styles.base, compact ? styles.compact : styles.regular, { backgroundColor, borderColor }, style]}>
       {loading ? <ActivityIndicator color={contentColor} /> : (
         <View style={styles.content}>
           {icon ? <MaterialIcons color={contentColor} name={icon} size={20} /> : null}
