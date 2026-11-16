@@ -1,0 +1,5 @@
+# Only the main Kairos chat is enabled in this workspace.
+# Other functions in the imported archive remain deliberately undeployed.
+[functions.kairos-query]
+verify_jwt = true
+entrypoint = "./functions/kairos-query/index.ts"
