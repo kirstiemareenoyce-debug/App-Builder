@@ -154,3 +154,23 @@ Deno.test("provider failures have no SDK retries and never expose provider error
   assert.equal(JSON.stringify(logs).includes("private-provider-detail"), false);
   assert.equal(JSON.stringify(logs).includes("offline-test-key"), false);
 });
+Deno.test("emergency gate blocks both paid transports and a newly paused OpenAI fallback", async () => {
+  for (const pauseAfterKimi of [false, true]) {
+    let paidCalls = 0;
+    let checks = 0;
+    const runner = createCompletionRunner({
+      getEnv: env, onFailure: () => {},
+      quotaManager: createKimiQuotaManager({ fetcher: () => Promise.resolve(balance(10)) }),
+      fetcher: () => {
+        paidCalls++;
+        return Promise.resolve(reply("partial", "length"));
+      },
+    });
+    await assert.rejects(() => runner("s", "u", "offline", async () => {
+      checks++;
+      if (!pauseAfterKimi || paidCalls > 0) throw new HttpError(503, "PROJECT_AI_PAUSED", "Paused");
+    }), (e) => e instanceof HttpError && e.code === "PROJECT_AI_PAUSED");
+    assert.equal(paidCalls, pauseAfterKimi ? 1 : 0);
+    assert.equal(checks, pauseAfterKimi ? 3 : 1);
+  }
+});

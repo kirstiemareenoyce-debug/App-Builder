@@ -50,6 +50,55 @@ try {
     end $$;`;
   console.log(await run("psql", ["-X", "-h", dir, "-p", "55439", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], sql));
   console.log("Budget SQL assertions passed; all schema, role fixtures and rows rolled back.");
+  // Commit ONLY in this disposable cluster so independent psql processes can
+  // exercise real lock contention. Nothing connects to the external project.
+  const projectMigration = await readFile(join(root, "migrations/20261116000300_project_chat_budget.sql"), "utf8");
+  const projectChecks = await readFile(join(root, "tests/project-chat-budget.sql"), "utf8");
+  const psql = ["-X", "-q", "-A", "-t", "-h", dir, "-p", "55439", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"];
+  await run("psql", psql, `create role anon; create role authenticated;
+    create role service_role bypassrls; create schema auth;
+    create table auth.users (id uuid primary key);
+    grant usage on schema public to anon, authenticated, service_role;
+    ${migration}
+    insert into auth.users values ('00000000-0000-4000-8000-000000000001');
+    insert into public.kairos_ai_daily_usage values
+      ('00000000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'UTC')::date, 2);
+    ${projectMigration}
+    do $$ begin
+      if (select attempts from public.kairos_ai_project_daily_usage
+        where usage_day = (clock_timestamp() at time zone 'UTC')::date) <> 2
+      then raise exception 'Migration reset existing usage'; end if;
+    end $$;
+    truncate public.kairos_ai_daily_usage, public.kairos_ai_project_daily_usage;`);
+  await run("psql", psql, projectChecks);
+  // Separate users model aggregate growth. Multiple independent transactions
+  // contend on the first-use row and subsequently on an existing day.
+  const ids = Array.from({ length: 40 }, (_, i) => `00000000-0000-4000-8000-${String(i + 10).padStart(12, "0")}`);
+  await run("psql", psql, `insert into auth.users values ${ids.map((id) => `('${id}')`).join(",")};
+    update public.kairos_ai_project_policy set daily_limit = 7, paused = false;`);
+  async function burst() {
+    const results = await Promise.all(ids.map((id) => run("psql", psql,
+      `set role service_role; select reason from public.reserve_kairos_ai_request('${id}');`)));
+    return results.map((result) => result.trim());
+  }
+  const first = await burst();
+  if (first.filter((r) => r === "allowed").length !== 7 ||
+      first.filter((r) => r === "project_limit").length !== 33) {
+    throw new Error("Concurrent first-use exhaustion exceeded or missed the project allowance.");
+  }
+  await run("psql", psql, "update public.kairos_ai_project_policy set daily_limit = 10;");
+  const second = await burst();
+  if (second.filter((r) => r === "allowed").length !== 3) {
+    throw new Error("Concurrent existing-row exhaustion did not preserve the allowance.");
+  }
+  await run("psql", psql, `do $$ begin
+    if (select sum(attempts) from public.kairos_ai_daily_usage) <> 10
+      or (select sum(attempts) from public.kairos_ai_project_daily_usage) <> 10
+    then raise exception 'Atomic user/project counters diverged'; end if;
+    end $$;
+    update public.kairos_ai_project_policy set paused = true;`);
+  if ((await burst()).some((r) => r !== "paused")) throw new Error("Paused burst admitted a request.");
+  console.log("Project SQL checks and 120 concurrent reservations passed; no provider calls or live changes.");
 } finally {
   if (started) await run("pg_ctl", ["-D", data, "-m", "immediate", "-w", "stop"]);
   await rm(dir, { recursive: true, force: true });

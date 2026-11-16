@@ -18,11 +18,11 @@ function required(value, label) {
   if (!value) throw new Error(`${label} is required.`);
   return value;
 }
-const mutations = new Set(["schema", "budget-schema", "secrets", "deploy", "verify-rls", "verify-budget"]);
+const mutations = new Set(["schema", "budget-schema", "project-budget-schema", "ai-pause", "ai-enable", "secrets", "deploy", "verify-rls", "verify-budget"]);
 
 async function main() {
-  if (!["inspect", "bundle", "schema", "budget-schema", "secrets", "deploy", "verify", "verify-rls", "verify-budget"].includes(command)) {
-    console.log("Usage: node supabase/manage.mjs <inspect|bundle|schema|budget-schema|secrets|deploy|verify|verify-rls|verify-budget> --project-ref REF [--apply] [--origin HTTPS_ORIGIN]");
+  if (!["inspect", "bundle", "schema", "budget-schema", "project-budget-schema", "ai-pause", "ai-enable", "secrets", "deploy", "verify", "verify-rls", "verify-budget"].includes(command)) {
+    console.log("Usage: node supabase/manage.mjs <inspect|bundle|schema|budget-schema|project-budget-schema|ai-pause|ai-enable|secrets|deploy|verify|verify-rls|verify-budget> --project-ref REF [--apply] [--origin HTTPS_ORIGIN] [--daily-limit APPROVED_LIMIT]");
     process.exitCode = 1;
     return;
   }
@@ -66,6 +66,9 @@ async function main() {
       'provider_table', to_regclass('public.ai_provider_runtime_state') is not null,
       'budget_table', to_regclass('public.kairos_ai_daily_usage') is not null,
       'budget_function', to_regprocedure('public.reserve_kairos_ai_request(uuid)') is not null,
+      'project_policy_table', to_regclass('public.kairos_ai_project_policy') is not null,
+      'project_budget_table', to_regclass('public.kairos_ai_project_daily_usage') is not null,
+      'project_pause_function', to_regprocedure('public.kairos_ai_request_enabled()') is not null,
       'timestamp_trigger_dependency', to_regprocedure('public.set_updated_at()') is not null,
       'public_table_count', (select count(*) from pg_tables where schemaname='public'),
       'policies', (select json_agg(json_build_object('table', tablename, 'policy', policyname, 'role', roles, 'command', cmd, 'predicate', qual))
@@ -100,6 +103,25 @@ async function main() {
     }
     await sql(await readFile(join(root, "migrations/20261116000200_main_chat_budget.sql"), "utf8"), false);
     console.log(JSON.stringify({ budgetSchemaApplied: true, metadata: await schemaMetadata() }, null, 2));
+  } else if (command === "project-budget-schema") {
+    const before = (await schemaMetadata())[0]?.setup_metadata;
+    if (!before?.budget_table || !before?.budget_function ||
+        before.project_policy_table || before.project_budget_table || before.project_pause_function) {
+      throw new Error("Project budget prerequisites changed. Inspect schema drift before applying.");
+    }
+    await sql(await readFile(join(root, "migrations/20261116000300_project_chat_budget.sql"), "utf8"), false);
+    console.log(JSON.stringify({ projectBudgetSchemaApplied: true, paused: true, dailyLimit: 100 }));
+  } else if (command === "ai-pause" || command === "ai-enable") {
+    const limit = option("--daily-limit");
+    if (command === "ai-enable" && (!limit || !/^[1-9][0-9]{0,6}$/.test(limit) || Number(limit) > 1000000)) {
+      throw new Error("Enabling requires an owner-approved --daily-limit between 1 and 1000000.");
+    }
+    // Policy writes take the same row lock as reservations; never reset usage.
+    const rows = await sql(`update public.kairos_ai_project_policy
+      set ${command === "ai-pause" ? "paused = true" : `paused = false, daily_limit = ${Number(limit)}`}
+      where singleton = true returning paused, daily_limit`, false);
+    if (rows.length !== 1) throw new Error("Project policy is missing. AI must remain disabled.");
+    console.log(JSON.stringify({ policy: rows[0], countersReset: false }));
   } else if (command === "secrets") {
     const origin = required(option("--origin"), "--origin");
     const parsed = new URL(origin);

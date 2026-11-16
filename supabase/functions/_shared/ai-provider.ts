@@ -39,7 +39,8 @@ export function createCompletionRunner(options: RunnerOptions = {}) {
     if (!value) throw new HttpError(500, "CONFIGURATION_ERROR", "A required server configuration is missing.");
     return value;
   }
-  async function complete(provider: AIProviderName, system: string, user: string): Promise<string> {
+  async function complete(provider: AIProviderName, system: string, user: string, beforeProvider: () => Promise<void>): Promise<string> {
+    await beforeProvider();
     const client = new OpenAI({
       apiKey: required(provider === "kimi" ? "KIMI_API_KEY" : "OPENAI_API_KEY"),
       ...(provider === "kimi" ? { baseURL: "https://api.moonshot.ai/v1" } : {}),
@@ -57,25 +58,35 @@ export function createCompletionRunner(options: RunnerOptions = {}) {
     }
     return text;
   }
-  return async (system: string, user: string, requestId: string): Promise<EvergreenCompletion> => {
+  return async (system: string, user: string, requestId: string, beforeProvider: () => Promise<void> = async () => {}): Promise<EvergreenCompletion> => {
     let fallbackReason: string | null = null;
     let kimiQuota: KimiQuotaDecision | null = null;
+    // A failed gate is not a provider failure and must not trigger fallback.
+    let gateError: unknown;
+    const guardedCheck = async () => {
+      if (gateError) throw gateError;
+      try { await beforeProvider(); } catch (error) { gateError = error; throw error; }
+    };
     try {
       const result = await runWithProviderFallback(getProviderOrder(getEnv("AI_PRIMARY_PROVIDER")),
         async (provider) => {
-          if (provider !== "kimi") return complete(provider, system, user);
+          if (gateError) throw gateError;
+          if (provider !== "kimi") return complete(provider, system, user, guardedCheck);
+          await guardedCheck();
           kimiQuota = await quotaManager.evaluate(required("KIMI_API_KEY"));
           if (!kimiQuota.shouldAttempt) throw new KimiQuotaUnavailableError(kimiQuota);
           try {
-            const text = await complete(provider, system, user);
+            const text = await complete(provider, system, user, guardedCheck);
             kimiQuota = await quotaManager.recordSuccess();
             return text;
           } catch (error) {
+            if (gateError) throw gateError;
             kimiQuota = await quotaManager.recordFailure(error);
             throw error;
           }
         },
         (provider, error) => {
+          if (gateError) return;
           const code = provider === "kimi" && kimiQuota ? kimiQuota.reason : safeProviderFailureCode(error);
           if (!fallbackReason) fallbackReason = `${provider}_${code}`;
           onFailure({ requestId, provider, code });
@@ -86,6 +97,7 @@ export function createCompletionRunner(options: RunnerOptions = {}) {
         fallbackReason: result.fallbackUsed ? fallbackReason : null, kimiQuota,
       };
     } catch {
+      if (gateError) throw gateError;
       throw new HttpError(503, "AI_UNAVAILABLE", "Kairos AI is temporarily unavailable.");
     }
   };
@@ -94,7 +106,7 @@ export function createCompletionRunner(options: RunnerOptions = {}) {
 // Do not create provider clients, read provider secrets or probe balance during
 // module startup, preflight, failed authentication or request validation.
 let defaultRunner: ReturnType<typeof createCompletionRunner> | undefined;
-export function completeEvergreen(system: string, user: string, requestId: string): Promise<EvergreenCompletion> {
+export function completeEvergreen(system: string, user: string, requestId: string, beforeProvider: () => Promise<void>): Promise<EvergreenCompletion> {
   defaultRunner ??= createCompletionRunner();
-  return defaultRunner(system, user, requestId);
+  return defaultRunner(system, user, requestId, beforeProvider);
 }

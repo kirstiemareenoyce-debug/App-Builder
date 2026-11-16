@@ -3,7 +3,7 @@ import { handlePreflight } from "../_shared/cors.ts";
 import { HttpError } from "../_shared/errors.ts";
 import { getRequestId, readJsonBounded } from "../_shared/request.ts";
 import { errorResponse, methodNotAllowed, successResponse } from "../_shared/responses.ts";
-import { reserveKairosAIRequest } from "../_shared/request-budget.ts";
+import { assertKairosAIEnabled, reserveKairosAIRequest } from "../_shared/request-budget.ts";
 import {
   buildKairosUserPrompt, kairosQuerySchema, KAIROS_SYSTEM_PROMPT,
   KAIROS_AI_CONSENT_VERSION, KAIROS_STORAGE_CONSENT_VERSION,
@@ -11,7 +11,7 @@ import {
 
 export type KairosQueryDependencies = {
   authenticate: (request: Request) => Promise<{ user: { id: string }; userClient: SupabaseClient }>;
-  complete: (system: string, message: string, requestId: string) => Promise<{ text: string; provider: string }>;
+  complete: (system: string, message: string, requestId: string, beforeProvider: () => Promise<void>) => Promise<{ text: string; provider: string }>;
   serviceClient: () => SupabaseClient;
 };
 
@@ -36,7 +36,8 @@ export async function handleKairosQuery(request: Request, dependencies: KairosQu
     }
     const serviceClient = dependencies.serviceClient();
     await reserveKairosAIRequest(serviceClient, user.id);
-    const completion = await dependencies.complete(KAIROS_SYSTEM_PROMPT, buildKairosUserPrompt(body), requestId);
+    const completion = await dependencies.complete(KAIROS_SYSTEM_PROMPT, buildKairosUserPrompt(body), requestId,
+      () => assertKairosAIEnabled(serviceClient));
     const saved = await serviceClient.from("kairos_ai_interactions").insert({
       user_id: user.id, query: body.query, response: completion.text,
       mode: body.mode, provider: completion.provider,

@@ -13,7 +13,7 @@ function request(body: unknown = valid, extra: RequestInit = {}) {
     body: JSON.stringify(body), ...extra,
   });
 }
-function fixture(options: { authError?: boolean; dependencyError?: boolean; saveError?: boolean; providerError?: boolean; budgetLimit?: number; budgetError?: boolean } = {}) {
+function fixture(options: { authError?: boolean; dependencyError?: boolean; saveError?: boolean; providerError?: boolean; budgetLimit?: number; budgetError?: boolean; projectLimit?: number; paused?: boolean; pauseAfterReservation?: boolean } = {}) {
   const calls: { operation: string; values: unknown[] }[] = [];
   let used = 0;
   const probe = {
@@ -38,19 +38,27 @@ function fixture(options: { authError?: boolean; dependencyError?: boolean; save
         userClient: { from: (table: string) => { calls.push({ operation: "probe-table", values: [table] }); return probe; } } as unknown as SupabaseClient,
       });
     },
-    complete: (system, message) => {
+    complete: async (system, message, _requestId, beforeProvider) => {
+      await beforeProvider();
       calls.push({ operation: "complete", values: [system, message] });
       if (options.providerError) return Promise.reject(new HttpError(503, "AI_UNAVAILABLE", "Unavailable"));
       return Promise.resolve({ text: "Offline test fixture, never a live UI reply.", provider: "openai" });
     },
     serviceClient: () => ({
       rpc: (name: string, args: unknown) => {
+        if (name === "kairos_ai_request_enabled") {
+          calls.push({ operation: "pause-check", values: [] });
+          return Promise.resolve({ data: !options.paused && !options.pauseAfterReservation, error: null });
+        }
         calls.push({ operation: "reserve", values: [name, args] });
         const limit = options.budgetLimit ?? 20;
-        const allowed = used < limit;
+        const reason = options.paused ? "paused" : used >= (options.projectLimit ?? 100)
+          ? "project_limit" : used >= limit ? "user_limit" : "allowed";
+        const allowed = reason === "allowed";
         if (allowed) used++;
         return Promise.resolve({
-          data: [{ allowed, used, daily_limit: limit, resets_at: "2026-11-17T00:00:00Z" }],
+          data: [{ allowed, reason, used, daily_limit: limit, project_used: used,
+            project_daily_limit: options.projectLimit ?? 100, resets_at: "2026-11-17T00:00:00Z" }],
           error: options.budgetError ? new Error("private database details") : null,
         });
       },
@@ -63,6 +71,18 @@ Deno.test("authentication fails before any history lookup or provider call", asy
   const { calls, deps } = fixture({ authError: true });
   assert.equal((await handleKairosQuery(request(), deps)).status, 401);
   assert.deepEqual(calls.map((call) => call.operation), ["authenticate"]);
+});
+Deno.test("global exhaustion and pause block providers and saving, including pause after reservation", async () => {
+  for (const options of [{ paused: true }, { pauseAfterReservation: true }, { projectLimit: 2 }]) {
+    const { deps, calls } = fixture(options);
+    const responses = await Promise.all(Array.from({ length: 10 }, () => handleKairosQuery(request(), deps)));
+    const expected = options.projectLimit ? 2 : 0;
+    assert.equal(calls.filter((c) => c.operation === "complete").length, expected);
+    assert.equal(calls.filter((c) => c.operation === "insert").length, expected);
+    assert.equal(responses.filter((r) => r.status === 200).length, expected);
+    const denied = await responses.find((r) => r.status !== 200)!.json();
+    assert.equal(denied.error.code, options.projectLimit ? "PROJECT_AI_LIMIT_REACHED" : "PROJECT_AI_PAUSED");
+  }
 });
 Deno.test("separate consents, supported mode and no injected owner or private context", async () => {
   for (const body of [
