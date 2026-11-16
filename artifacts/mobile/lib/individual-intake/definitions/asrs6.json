@@ -1,0 +1,62 @@
+{
+  "id": "asrs6",
+  "version": "asrs-v1.1-part-a-en",
+  "title": "Adult Self-Report Scale-V1.1 (ASRS-V1.1) Screener",
+  "shortTitle": "ASRS v1.1 6-Question Screener",
+  "instructions": "Check the box that best describes how you have felt and conducted yourself over the past 6 months. Please give the completed questionnaire to your healthcare professional during your next appointment to discuss the results.",
+  "timeframe": "Over the past 6 months",
+  "items": [
+    {
+      "id": "asrs6_1",
+      "text": "How often do you have trouble wrapping up the final details of a project, once the challenging parts have been done?"
+    },
+    {
+      "id": "asrs6_2",
+      "text": "How often do you have difficulty getting things in order when you have to do a task that requires organization?"
+    },
+    {
+      "id": "asrs6_3",
+      "text": "How often do you have problems remembering appointments or obligations?"
+    },
+    {
+      "id": "asrs6_4",
+      "text": "When you have a task that requires a lot of thought, how often do you avoid or delay getting started?"
+    },
+    {
+      "id": "asrs6_5",
+      "text": "How often do you fidget or squirm with your hands or feet when you have to sit down for a long time?"
+    },
+    {
+      "id": "asrs6_6",
+      "text": "How often do you feel overly active and compelled to do things, like you were driven by a motor?"
+    }
+  ],
+  "options": [
+    { "value": 0, "label": "Never" },
+    { "value": 1, "label": "Rarely" },
+    { "value": 2, "label": "Sometimes" },
+    { "value": 3, "label": "Often" },
+    { "value": 4, "label": "Very Often" }
+  ],
+  "scoring": {
+    "kind": "asrs6-count",
+    "version": "asrs-v1.1-part-a-shaded-v1",
+    "thresholds": {
+      "asrs6_1": 2,
+      "asrs6_2": 2,
+      "asrs6_3": 2,
+      "asrs6_4": 3,
+      "asrs6_5": 3,
+      "asrs6_6": 3
+    },
+    "positiveCount": 4
+  },
+  "attribution": "The 6-question Adult Self-Report Scale-Version1.1 (ASRS-V1.1) Screener is a subset of the 18-question Adult ADHD Self-Report Scale-Version1.1 (Adult ASRSV1.1) Symptom Checklist. © New York University and the President and Fellows of Harvard College. All rights reserved.",
+  "rightsSummary": "NYU expressly permits clinical and non-clinical use, including commercial use, with attribution. Creating electronic versions is permitted; no other modifications are permitted. These unchanged English six questions, response labels, order and six-month timeframe come from the patient-facing English PDF linked on the NYU licensing page. This permission is not generalized to the full 18-item checklist or ASRS-5.",
+  "sourceUrls": [
+    "https://license.tov.med.nyu.edu/product/asrs6Qscreener",
+    "https://license.tov.med.nyu.edu/download/5372",
+    "https://nyulangone.org/files/adhd-screener.pdf"
+  ],
+  "resultNote": "This adult screener is intended for people aged 18 years or older. It counts responses in the original shaded areas; it does not sum the response values. Four or more flagged responses meet the screener threshold and may warrant a professional evaluation, but this is not an ADHD diagnosis. Below-threshold results do not exclude ADHD. An accurate diagnosis requires a clinical evaluation; diagnosis, prescriptions and medication decisions must never be based solely on this score. Regardless of the result, discuss concerns with a qualified healthcare professional. This is not a measure of mental fitness or relationship readiness."
+}

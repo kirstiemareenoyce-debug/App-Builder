@@ -1,0 +1,168 @@
+{
+  "id": "ipip50",
+  "version": "ipip-50-b5-en",
+  "title": "50-item IPIP Big Five Factor Markers",
+  "shortTitle": "IPIP Big Five",
+  "instructions": "Describe yourself as you generally are now, not as you wish to be in the future. Describe yourself as you honestly see yourself, in relation to other people you know of the same sex as you are, and roughly your same age. Indicate for each statement whether it is 1. Very Inaccurate, 2. Moderately Inaccurate, 3. Neither Accurate Nor Inaccurate, 4. Moderately Accurate, or 5. Very Accurate as a description of you.",
+  "timeframe": "As you generally are now",
+  "items": [
+    { "id": "ipip50_1", "text": "Am the life of the party." },
+    { "id": "ipip50_2", "text": "Feel little concern for others." },
+    { "id": "ipip50_3", "text": "Am always prepared." },
+    { "id": "ipip50_4", "text": "Get stressed out easily." },
+    { "id": "ipip50_5", "text": "Have a rich vocabulary." },
+    { "id": "ipip50_6", "text": "Don't talk a lot." },
+    { "id": "ipip50_7", "text": "Am interested in people." },
+    { "id": "ipip50_8", "text": "Leave my belongings around." },
+    { "id": "ipip50_9", "text": "Am relaxed most of the time." },
+    {
+      "id": "ipip50_10",
+      "text": "Have difficulty understanding abstract ideas."
+    },
+    { "id": "ipip50_11", "text": "Feel comfortable around people." },
+    { "id": "ipip50_12", "text": "Insult people." },
+    { "id": "ipip50_13", "text": "Pay attention to details." },
+    { "id": "ipip50_14", "text": "Worry about things." },
+    { "id": "ipip50_15", "text": "Have a vivid imagination." },
+    { "id": "ipip50_16", "text": "Keep in the background." },
+    { "id": "ipip50_17", "text": "Sympathize with others' feelings." },
+    { "id": "ipip50_18", "text": "Make a mess of things." },
+    { "id": "ipip50_19", "text": "Seldom feel blue." },
+    { "id": "ipip50_20", "text": "Am not interested in abstract ideas." },
+    { "id": "ipip50_21", "text": "Start conversations." },
+    {
+      "id": "ipip50_22",
+      "text": "Am not interested in other people's problems."
+    },
+    { "id": "ipip50_23", "text": "Get chores done right away." },
+    { "id": "ipip50_24", "text": "Am easily disturbed." },
+    { "id": "ipip50_25", "text": "Have excellent ideas." },
+    { "id": "ipip50_26", "text": "Have little to say." },
+    { "id": "ipip50_27", "text": "Have a soft heart." },
+    {
+      "id": "ipip50_28",
+      "text": "Often forget to put things back in their proper place."
+    },
+    { "id": "ipip50_29", "text": "Get upset easily." },
+    { "id": "ipip50_30", "text": "Do not have a good imagination." },
+    {
+      "id": "ipip50_31",
+      "text": "Talk to a lot of different people at parties."
+    },
+    { "id": "ipip50_32", "text": "Am not really interested in others." },
+    { "id": "ipip50_33", "text": "Like order." },
+    { "id": "ipip50_34", "text": "Change my mood a lot." },
+    { "id": "ipip50_35", "text": "Am quick to understand things." },
+    { "id": "ipip50_36", "text": "Don't like to draw attention to myself." },
+    { "id": "ipip50_37", "text": "Take time out for others." },
+    { "id": "ipip50_38", "text": "Shirk my duties." },
+    { "id": "ipip50_39", "text": "Have frequent mood swings." },
+    { "id": "ipip50_40", "text": "Use difficult words." },
+    { "id": "ipip50_41", "text": "Don't mind being the center of attention." },
+    { "id": "ipip50_42", "text": "Feel others' emotions." },
+    { "id": "ipip50_43", "text": "Follow a schedule." },
+    { "id": "ipip50_44", "text": "Get irritated easily." },
+    { "id": "ipip50_45", "text": "Spend time reflecting on things." },
+    { "id": "ipip50_46", "text": "Am quiet around strangers." },
+    { "id": "ipip50_47", "text": "Make people feel at ease." },
+    { "id": "ipip50_48", "text": "Am exacting in my work." },
+    { "id": "ipip50_49", "text": "Often feel blue." },
+    { "id": "ipip50_50", "text": "Am full of ideas." }
+  ],
+  "options": [
+    { "value": 1, "label": "Very Inaccurate" },
+    { "value": 2, "label": "Moderately Inaccurate" },
+    { "value": 3, "label": "Neither Accurate Nor Inaccurate" },
+    { "value": 4, "label": "Moderately Accurate" },
+    { "value": 5, "label": "Very Accurate" }
+  ],
+  "scoring": {
+    "kind": "ipip50-keyed",
+    "version": "ipip-50-b5-keyed-v1",
+    "scales": [
+      {
+        "id": "extraversion",
+        "title": "Extraversion",
+        "positiveItemIds": [
+          "ipip50_1",
+          "ipip50_11",
+          "ipip50_21",
+          "ipip50_31",
+          "ipip50_41"
+        ],
+        "negativeItemIds": [
+          "ipip50_6",
+          "ipip50_16",
+          "ipip50_26",
+          "ipip50_36",
+          "ipip50_46"
+        ]
+      },
+      {
+        "id": "agreeableness",
+        "title": "Agreeableness",
+        "positiveItemIds": [
+          "ipip50_7",
+          "ipip50_17",
+          "ipip50_27",
+          "ipip50_37",
+          "ipip50_42",
+          "ipip50_47"
+        ],
+        "negativeItemIds": ["ipip50_2", "ipip50_12", "ipip50_22", "ipip50_32"]
+      },
+      {
+        "id": "conscientiousness",
+        "title": "Conscientiousness",
+        "positiveItemIds": [
+          "ipip50_3",
+          "ipip50_13",
+          "ipip50_23",
+          "ipip50_33",
+          "ipip50_43",
+          "ipip50_48"
+        ],
+        "negativeItemIds": ["ipip50_8", "ipip50_18", "ipip50_28", "ipip50_38"]
+      },
+      {
+        "id": "emotional_stability",
+        "title": "Emotional Stability",
+        "positiveItemIds": ["ipip50_9", "ipip50_19"],
+        "negativeItemIds": [
+          "ipip50_4",
+          "ipip50_14",
+          "ipip50_24",
+          "ipip50_29",
+          "ipip50_34",
+          "ipip50_39",
+          "ipip50_44",
+          "ipip50_49"
+        ]
+      },
+      {
+        "id": "intellect_imagination",
+        "title": "Intellect/Imagination",
+        "positiveItemIds": [
+          "ipip50_5",
+          "ipip50_15",
+          "ipip50_25",
+          "ipip50_35",
+          "ipip50_40",
+          "ipip50_45",
+          "ipip50_50"
+        ],
+        "negativeItemIds": ["ipip50_10", "ipip50_20", "ipip50_30"]
+      }
+    ]
+  },
+  "attribution": "International Personality Item Pool (IPIP), 50-item Big Five Factor Markers. These five scales were developed to measure the Big-Five factor markers reported in Goldberg, L. R. (1992). The development of markers for the Big-Five factor structure. Psychological Assessment, 4, 26–42.",
+  "rightsSummary": "Official IPIP items, scales and inventories are public domain for any purpose, commercial or non-commercial. All 50 English items, the sample item order, five response anchors and ten-item factor keys are preserved. Administration instructions are expressly suggestions, not standardized requirements. The sample sentence promising absolute confidence is deliberately omitted: Kairos must explain actual privacy and storage separately and must not imply an absolute security guarantee. No other sample response instruction is changed. Source factor/sign annotations are scoring metadata, not respondent-facing item text.",
+  "sourceUrls": [
+    "https://ipip.ori.org/new_ipip-50-item-scale.htm",
+    "https://ipip.ori.org/newBigFive5broadKey.htm",
+    "https://ipip.ori.org/newScoringInstructions.htm",
+    "https://ipip.ori.org/newPermission.htm",
+    "https://ipip.ori.org/InterpretingIndividualIPIPScaleScores.htm"
+  ],
+  "resultNote": "These are five separate continuous self-described personality traits, each scored 10–50 with a keyed item mean of 1–5. There is no combined personality score, population percentile, fixed personality type, diagnosis or fitness threshold. Intellect/Imagination is a personality factor, not an IQ or intelligence test. Emotional Stability is scored in the source's direction, not relabelled as Neuroticism. Without suitable population norms these raw scores do not identify you as low, average or high compared with others."
+}

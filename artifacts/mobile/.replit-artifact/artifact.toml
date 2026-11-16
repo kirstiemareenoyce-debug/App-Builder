@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Kairos"
+description = "A private personal mobile companion with four connected areas: AI assistants, My Life, My Relationship, and My Work. Includes a clearly separated preview mode; cloud services and provider connections remain disabled until configured."
+version = "1.0.0"
+id = "artifacts/mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 18115
+
+[services.development]
+run = "pnpm --filter @workspace/mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/mobile", "run", "serve" ]
+
+[services.env]
+PORT = "18115"
+BASE_PATH = "/"
